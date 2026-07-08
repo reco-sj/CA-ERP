@@ -1,0 +1,92 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "system": {
+      "users": {
+        ".read": true,
+
+        "$username": {
+          ".write": true,
+
+          ".validate": "!newData.exists() || newData.hasChildren(['passwordHash', 'role'])",
+          "passwordHash": { ".validate": "newData.isString() && newData.val().length === 64 && newData.val().matches(/^[a-f0-9]+$/)" },
+          "role":         { ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'staff')" },
+          "displayName":  { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "createdAt":    { ".validate": "newData.isNumber()" },
+          "$other":       { ".validate": false }
+        }
+      }
+    },
+
+    "masterTasks": {
+      ".read": true,
+      "$taskId": {
+        ".write": true,
+        ".validate": "!newData.exists() || newData.hasChildren(['name'])",
+        "name":        { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
+        "frequency":   { ".validate": "newData.isString() && (newData.val() === 'monthly' || newData.val() === 'quarterly' || newData.val() === 'yearly' || newData.val() === 'once')" },
+        "defaultFees": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "createdAt":   { ".validate": "newData.isNumber()" },
+        "$other":      { ".validate": false }
+      }
+    },
+
+    "clients": {
+      ".read": true,
+      "$clientId": {
+        ".write": true,
+        ".validate": "!newData.exists() || newData.hasChildren(['companyName'])",
+        "companyName":      { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
+        "authorisedPerson": { ".validate": "newData.isString() && newData.val().length <= 80" },
+        "city":             { ".validate": "newData.isString() && newData.val().length <= 60" },
+        "gstin":            { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "pan":              { ".validate": "newData.isString() && newData.val().length <= 15" },
+        "mobile":           { ".validate": "newData.isString() && newData.val().length <= 500" },
+        "email":            { ".validate": "newData.isString() && newData.val().length <= 500" },
+        "feesReceived":     { ".validate": "newData.isString()" },
+        "createdAt":        { ".validate": "newData.isNumber()" },
+        "updatedAt":        { ".validate": "newData.isNumber()" },
+
+        "tasks": {
+          "$taskId": {
+            ".validate": "newData.isString() || newData.hasChildren()",
+            "status": { ".validate": "newData.isString() && (newData.val() === 'Pending' || newData.val() === 'Completed' || newData.val() === 'Not Applicable')" },
+            "fees":   { ".validate": "newData.isNumber() && newData.val() >= 0" },
+            "periods": {
+              "$year": {
+                ".validate": "$year.matches(/^[0-9]{4}$/)",
+                "$period": {
+                  ".validate": "($period.matches(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Q1|Q2|Q3|Q4|Year)$/)) && newData.isString() && (newData.val() === 'Pending' || newData.val() === 'Completed' || newData.val() === 'Not Applicable')"
+                }
+              }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "others": {
+          "$otherId": {
+            ".validate": "newData.hasChildren()",
+            "note":   { ".validate": "newData.isString() && newData.val().length <= 300" },
+            "fees":   { ".validate": "newData.isNumber() && newData.val() >= 0" },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "payments": {
+          "$payId": {
+            ".validate": "newData.hasChildren(['amount'])",
+            "amount": { ".validate": "newData.isNumber() && newData.val() > 0" },
+            "ts":     { ".validate": "newData.isNumber()" },
+            "note":   { ".validate": "newData.isString() && newData.val().length <= 200" },
+            "$other": { ".validate": false }
+          }
+        },
+
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
