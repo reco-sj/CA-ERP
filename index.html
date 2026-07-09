@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#14143f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CA Task Tracker" />
+  <link rel="apple-touch-icon" href="logo.png" />
+  <title>CA Task Tracker — by Reconense</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/png" href="logo.png" />
+
+  <!-- SheetJS (xlsx) for Excel parsing + template generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- ============================================================
+       LOGIN SCREEN
+  ============================================================ -->
+  <section id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-brand">
+        <img src="logo.png" alt="CA Task Tracker by Reconense" class="login-logo" />
+        <h1 class="brand-name">CA Task Tracker</h1>
+        <p class="brand-sub">Client compliance &amp; fees, in one place</p>
+      </div>
+
+      <form id="login-form" autocomplete="off">
+        <label class="field">
+          <span class="field-label">Username</span>
+          <input type="text" id="login-username" required autocomplete="username" placeholder="Enter username" />
+        </label>
+        <label class="field">
+          <span class="field-label">Password</span>
+          <input type="password" id="login-password" required autocomplete="current-password" placeholder="Enter password" />
+        </label>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">Sign in</button>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+      </form>
+
+      <p class="login-footnote">Access is restricted to authorised firm personnel.</p>
+      <p class="dev-credit">Developed by <strong>Reconense</strong> · +91-8000040564</p>
+    </div>
+    <div class="login-arc" aria-hidden="true"></div>
+  </section>
+
+  <!-- ============================================================
+       APP SHELL (hidden until authenticated)
+  ============================================================ -->
+  <div id="app-shell" class="app-shell" hidden>
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <img src="logo.png" alt="CA Task Tracker logo" class="header-logo" />
+        <div class="header-titles">
+          <span class="header-name">CA Task Tracker</span>
+          <span class="header-tag">by Reconense</span>
+        </div>
+      </div>
+      <div class="header-user">
+        <label class="year-picker">
+          <span>FY / Year</span>
+          <select id="year-select" class="select"></select>
+        </label>
+        <span class="user-chip">
+          <span id="user-name">—</span>
+          <span id="user-role" class="role-badge">—</span>
+        </span>
+        <button class="btn btn-ghost" id="logout-btn">Sign out</button>
+      </div>
+    </header>
+
+    <div class="app-body">
+
+      <!-- Sidebar navigation -->
+      <nav class="sidebar" aria-label="Main navigation">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-ico">◆</span> Dashboard
+        </button>
+        <button class="nav-item" data-view="clients">
+          <span class="nav-ico">▣</span> Clients
+        </button>
+        <button class="nav-item admin-only" data-view="tasks">
+          <span class="nav-ico">✓</span> Master tasks
+        </button>
+        <button class="nav-item admin-only" data-view="users">
+          <span class="nav-ico">👤</span> Users
+        </button>
+        <button class="nav-item admin-only" data-view="bulk">
+          <span class="nav-ico">⇪</span> Bulk upload
+        </button>
+      </nav>
+
+      <!-- Main content -->
+      <main class="main" id="main">
+
+        <!-- ================= DASHBOARD VIEW ================= -->
+        <section id="view-dashboard" class="view">
+          <div class="view-head">
+            <h2>Dashboard</h2>
+            <p class="view-sub">Live position for the year selected in the header. One card per compliance task.</p>
+          </div>
+
+          <div class="metric-grid" id="metric-grid">
+            <article class="metric-card">
+              <span class="metric-label">Total clients</span>
+              <span class="metric-value" id="m-total">0</span>
+            </article>
+
+            <!-- one card per master task is injected here -->
+            <span id="task-cards" style="display: contents;"></span>
+
+            <article class="metric-card metric-danger admin-only">
+              <span class="metric-label">Fees outstanding</span>
+              <span class="metric-value" id="m-fees">₹0</span>
+              <span class="metric-sub" id="m-fees-sub"></span>
+            </article>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Client summary</h3>
+              <div class="table-tools">
+                <input type="search" id="dash-search" class="search-input" placeholder="Search company, person, city, GSTIN, PAN…" />
+                <select id="dash-filter-task" class="select"></select>
+                <select id="dash-filter-status" class="select">
+                  <option value="">Any status</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Not Applicable">Not Applicable</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="dash-table">
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Authorised person</th>
+                    <th>Contact</th>
+                    <th>City</th>
+                    <th>Task progress</th>
+                    <th class="admin-only">Total fees</th>
+                    <th class="admin-only">Payment</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-tbody"></tbody>
+              </table>
+              <p id="dash-empty" class="empty-state" hidden>No clients match the current search or filter.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= CLIENTS VIEW ================= -->
+        <section id="view-clients" class="view" hidden>
+          <div class="view-head">
+            <h2>Clients</h2>
+            <p class="view-sub">Open a client's panel to mark each month/quarter/year, adjust fees, and record payments.</p>
+            <button class="btn btn-primary admin-only" id="open-add-client">+ Add client</button>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>All clients — <span id="clients-year-label"></span></h3>
+              <div class="table-tools">
+                <input type="search" id="client-search" class="search-input" placeholder="Search clients…" />
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="client-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Company</th>
+                    <th>Authorised person</th>
+                    <th>Mobile</th>
+                    <th>City</th>
+                    <th>Progress</th>
+                    <th class="admin-only">Total fees</th>
+                    <th class="admin-only">Payment</th>
+                    <th class="admin-only">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="client-tbody"></tbody>
+              </table>
+              <p id="client-empty" class="empty-state" hidden>No clients yet. Add one manually or use bulk upload.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= MASTER TASKS VIEW (admin) ================= -->
+        <section id="view-tasks" class="view" hidden>
+          <div class="view-head">
+            <h2>Master task list</h2>
+            <p class="view-sub">Each task has a filing frequency and a default fee per filing. Tasks apply to every client and drive the Excel template.</p>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head"><h3>Add a compliance task</h3></div>
+              <form id="task-form" class="stack-form">
+                <label class="field">
+                  <span class="field-label">Task name</span>
+                  <input type="text" id="task-name" required placeholder="e.g. GST Filing, TDS Filing, ITR" maxlength="60" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Filing frequency</span>
+                  <select id="task-frequency" class="select">
+                    <option value="monthly">Monthly — 12 filings a year (e.g. GST)</option>
+                    <option value="quarterly">Quarterly — 4 filings a year (e.g. TDS)</option>
+                    <option value="yearly">Yearly — once every year (e.g. ITR, ROC)</option>
+                    <option value="once">Once only — one-time work</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Default fees per filing (₹)</span>
+                  <input type="number" id="task-fees" min="0" step="1" value="0" required placeholder="e.g. 1500" />
+                  <span class="field-hint">Charged for each completed filing; override per client anytime.</span>
+                </label>
+                <button type="submit" class="btn btn-primary">Add task</button>
+                <p id="task-error" class="form-error" hidden></p>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>Current tasks</h3></div>
+              <ul id="task-list" class="task-list"></ul>
+              <p id="task-empty" class="empty-state" hidden>No tasks defined. Add "GST Filing" (monthly) and "TDS Filing" (quarterly) to get started.</p>
+              <p class="card-note" style="margin-top:12px">
+                An <strong>"Others"</strong> row is built into every client automatically — use it for
+                one-off work with its own description and fee. It doesn't need to be added here.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= USERS VIEW (admin) ================= -->
+        <section id="view-users" class="view" hidden>
+          <div class="view-head">
+            <h2>Users</h2>
+            <p class="view-sub">Create logins for your team. Admins manage everything; Staff can only update task statuses.</p>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head"><h3>Add a user</h3></div>
+              <form id="user-form" class="stack-form" autocomplete="off">
+                <label class="field">
+                  <span class="field-label">Username *</span>
+                  <input type="text" id="u-username" required maxlength="30" pattern="[A-Za-z0-9_\-\.]{3,30}"
+                         placeholder="e.g. priya" autocomplete="off" />
+                  <span class="field-hint">3–30 characters; letters, numbers, dot, dash, underscore.</span>
+                </label>
+                <label class="field">
+                  <span class="field-label">Display name *</span>
+                  <input type="text" id="u-display" required maxlength="80" placeholder="Priya Verma" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Password *</span>
+                  <input type="password" id="u-password" required minlength="8" placeholder="Minimum 8 characters" autocomplete="new-password" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Role *</span>
+                  <select id="u-role" class="select">
+                    <option value="staff">Staff — update task statuses only</option>
+                    <option value="admin">Admin — full access incl. fees</option>
+                  </select>
+                </label>
+                <button type="submit" class="btn btn-primary">Create user</button>
+                <p id="user-error" class="form-error" hidden></p>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>Existing users</h3></div>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>Username</th><th>Display name</th><th>Role</th><th>Actions</th></tr>
+                  </thead>
+                  <tbody id="user-tbody"></tbody>
+                </table>
+              </div>
+              <p class="card-note" style="margin-top:12px">
+                Passwords are never stored — only salted SHA-256 hashes reach the database.
+                Use <em>Reset password</em> if someone forgets theirs.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= BULK UPLOAD VIEW (admin) ================= -->
+        <section id="view-bulk" class="view" hidden>
+          <div class="view-head">
+            <h2>Bulk upload</h2>
+            <p class="view-sub">Import clients from Excel. The template columns update automatically as you add master tasks.</p>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head"><h3>1 · Download the template</h3></div>
+              <p class="card-note">
+                Columns: client details (incl. optional <em>GSTIN</em> and <em>PAN</em>), one column per
+                master task — fill with <em>Pending</em>, <em>Completed</em> or <em>Not Applicable</em>,
+                applied to the <strong>current period</strong> (this month / this quarter / this year) —
+                plus <em>Others Description</em> and <em>Others Fees</em>.
+              </p>
+              <button class="btn btn-secondary" id="download-template">⬇ Download sample template (.xlsx)</button>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>2 · Upload your file</h3></div>
+              <label class="dropzone" id="dropzone">
+                <input type="file" id="bulk-file" accept=".xlsx,.xls" hidden />
+                <span class="dz-title">Choose an Excel file</span>
+                <span class="dz-sub">.xlsx — first sheet is imported</span>
+              </label>
+              <div id="bulk-result" class="bulk-result" hidden></div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- Branding footer -->
+    <footer class="app-footer">
+      Developed by <strong>Reconense</strong> · +91-8000040564
+    </footer>
+  </div>
+
+  <!-- ============================================================
+       ADD / EDIT CLIENT MODAL
+  ============================================================ -->
+  <div id="client-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="client-modal-title">
+      <div class="modal-head">
+        <h3 id="client-modal-title">Add client</h3>
+        <button class="modal-close" id="client-modal-close" aria-label="Close">×</button>
+      </div>
+      <form id="client-form" class="stack-form">
+        <input type="hidden" id="client-id" />
+        <label class="field">
+          <span class="field-label">Company name *</span>
+          <input type="text" id="c-company" required maxlength="120" placeholder="M/s Sharma Traders Pvt Ltd" />
+        </label>
+        <label class="field">
+          <span class="field-label">Authorised person *</span>
+          <input type="text" id="c-person" required maxlength="80" placeholder="Rakesh Sharma" />
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Mobile number *</span>
+            <input type="tel" id="c-mobile" required pattern="[0-9+\-\s]{7,15}" placeholder="98290 00000" />
+          </label>
+          <label class="field">
+            <span class="field-label">City *</span>
+            <input type="text" id="c-city" required maxlength="60" placeholder="Jaipur" />
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">GSTIN (optional)</span>
+            <input type="text" id="c-gstin" maxlength="15" placeholder="08ABCDE1234F1Z5"
+                   pattern="[0-9A-Za-z]{15}" title="15-character GSTIN" />
+          </label>
+          <label class="field">
+            <span class="field-label">Company PAN (optional)</span>
+            <input type="text" id="c-pan" maxlength="10" placeholder="ABCDE1234F"
+                   pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" title="10-character PAN, e.g. ABCDE1234F" />
+          </label>
+        </div>
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input type="email" id="c-email" maxlength="120" placeholder="accounts@company.in" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="client-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="client-save">Save client</button>
+        </div>
+        <p id="client-error" class="form-error" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       PAYMENTS MODAL (admin)
+  ============================================================ -->
+  <div id="payments-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="payments-modal-title">
+      <div class="modal-head">
+        <h3 id="payments-modal-title">Record payment</h3>
+        <button class="modal-close" id="payments-modal-close" aria-label="Close">×</button>
+      </div>
+
+      <div class="pay-summary" id="pay-summary"><!-- totals injected --></div>
+
+      <form id="payment-form" class="pay-form">
+        <label class="field pay-amount">
+          <span class="field-label">Amount received (₹) *</span>
+          <input type="number" id="pay-amount" min="1" step="1" required placeholder="e.g. 2500" />
+        </label>
+        <label class="field pay-note">
+          <span class="field-label">Note (optional)</span>
+          <input type="text" id="pay-note" maxlength="200" placeholder="e.g. UPI, part payment for GST" />
+        </label>
+        <button type="submit" class="btn btn-primary">＋ Record payment</button>
+        <p id="pay-error" class="form-error" hidden></p>
+      </form>
+
+      <h4 class="pay-history-title">Payment history</h4>
+      <ul id="pay-history" class="pay-history"></ul>
+      <p id="pay-history-empty" class="empty-state" hidden>No payments recorded yet.</p>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
